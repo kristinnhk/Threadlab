@@ -124,12 +124,8 @@ static void customer_arrived(struct customer *customer, void *arg)
     struct simulator *simulator = arg;
     struct chairs *chairs = &simulator->chairs;
 
-    sem_init(&customer->mutex, 0, 1);
-    sem_init(&customer->chair, 0, 1);
-    sem_init(&customer->barber, 0, 0);
 
     /* TODO: Accept if there is an available chair */
-		if(chairs->max > sem_get_value()) {
 			sem_wait(&chairs->chair);
     		sem_wait(&chairs->mutex);
 			thrlab_accept_customer(customer);
@@ -138,11 +134,8 @@ static void customer_arrived(struct customer *customer, void *arg)
 			sem_post(&chairs->barber);
 
 			sem_wait(&customer->mutex);
-	}
-	if(chairs->max == sem_get_value()){	
     /* TODO: Reject if there are no available chairs */
     	thrlab_reject_customer(customer);
-	}
 }
 
 

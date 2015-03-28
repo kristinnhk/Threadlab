@@ -25,6 +25,7 @@ struct chairs
 	sem_t chair;
 	sem_t mutex;
 	sem_t barber;
+
     /* TODO: Add more variables related to threads */
     /* Hint: Think of the consumer producer thread problem */
 };
@@ -51,9 +52,16 @@ static void *barber_work(void *arg)
 
     /* Main barber loop */
     while (true) {
-	/* TODO: Here you must add you semaphores and locking logic */
+	/* TODO: Here you must add your semaphores and locking logic */
+		sem_wait(&chairs->barber); 
+
+		sem_wait(&chairs->mutex);
 		customer = chairs->customer[0]; /* TODO: You must choose the customer */
 		thrlab_prepare_customer(customer, barber->room);
+		sem_post(&chairs->mutex);
+		//ATH!	
+		sem_post(&chairs->chair);
+		
         thrlab_sleep(5 * (customer->hair_length - customer->hair_goal));
         thrlab_dismiss_customer(customer, barber->room);
 		sem_post(&customer->mutex);
@@ -71,6 +79,11 @@ static void setup(struct simulator *simulator)
     /* Setup semaphores*/
     chairs->max = thrlab_get_num_chairs();
     
+	sem_init(&chairs->mutex, 0, 1);
+	sem_init(&chairs->chair, 0, 1);
+	sem_init(&chairs->barber, 0, 0);
+	
+	
     /* Create chairs*/
     chairs->customer = malloc(sizeof(struct customer *) * thrlab_get_num_chairs());
     
@@ -116,17 +129,20 @@ static void customer_arrived(struct customer *customer, void *arg)
     sem_init(&customer->barber, 0, 0);
 
     /* TODO: Accept if there is an available chair */
-		if(chairs->max > sem
-		sem_wait(&chairs->chair);
-    	sem_wait(&chairs->mutex);
-		thrlab_accept_customer(customer);
-    	chairs->customer[0] = customer;
-		sem_post(&chair->mutex);
-		sem_wait(&customer->mutex);
-	
-	
+		if(chairs->max > sem_get_value()) {
+			sem_wait(&chairs->chair);
+    		sem_wait(&chairs->mutex);
+			thrlab_accept_customer(customer);
+    		chairs->customer[0] = customer;
+			sem_post(&chairs->mutex);
+			sem_post(&chairs->barber);
+
+			sem_wait(&customer->mutex);
+	}
+	if(chairs->max == sem_get_value()){	
     /* TODO: Reject if there are no available chairs */
-    thrlab_reject_customer(customer);
+    	thrlab_reject_customer(customer);
+	}
 }
 
 

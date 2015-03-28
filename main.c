@@ -18,6 +18,27 @@
  * === End User Information ===
  ********************************************************/
 
+/* Wrapper functions for the semaphore system call */
+void Sem_Init(sem_t *sem, int x, int y) {
+    if(sem_init(sem,x,y) < 0) {
+        printf("Sem init error");
+        exit(0);
+    }
+}
+void Sem_Wait(sem_t *sem) {
+    if(sem_wait(sem) < 0) {
+        printf("Sem init error");
+        exit(0);
+    }
+}
+void Sem_Post(sem_t *sem) {
+    if(sem_post(sem) < 0) {
+        printf("Sem init error");
+        exit(0);
+    }
+}
+
+/* Scructs used in the program */
 struct chairs
 {
     struct customer **customer; /* Array of customers */
@@ -36,7 +57,7 @@ struct barber
 struct simulator
 {
     struct chairs chairs;
-    
+ 
     pthread_t *barberThread;
     struct barber **barber;
 };
@@ -49,23 +70,21 @@ static void *barber_work(void *arg)
 
     /* Main barber loop */
     while (true) {
-		sem_wait(&chairs->barber); 
-    
-		sem_wait(&chairs->mutex);
+		Sem_Wait(&chairs->barber); 
+		Sem_Wait(&chairs->mutex);
         /* Incrementing rear by one and modulo max to return back to 0 if
         * the que is at max index */
 		customer = chairs->customer[chairs->r++ % chairs->max]; 
         thrlab_prepare_customer(customer, barber->room);
-		sem_post(&chairs->mutex);
-		sem_post(&chairs->chair);
+		Sem_Post(&chairs->mutex);
+		Sem_Post(&chairs->chair);
 		
         thrlab_sleep(5 * (customer->hair_length - customer->hair_goal));
         thrlab_dismiss_customer(customer, barber->room);
-		sem_post(&customer->mutex);
+		Sem_Post(&customer->mutex);
     }
     return NULL;
 }
-
 
 /**
  * Initialize data structures and create waiting barber threads.
@@ -75,13 +94,13 @@ static void setup(struct simulator *simulator)
     struct chairs *chairs = &simulator->chairs;
     /* Setup semaphores*/
     chairs->max = thrlab_get_num_chairs();
-    /* Front and Rear of que both begin and index 0. */
+    /* Both Front and Rear start and index 0 */
     chairs->f = 0;
     chairs->r = 0;
  
-	sem_init(&chairs->mutex, 0, 1);
-	sem_init(&chairs->chair, 0, chairs->max);
-	sem_init(&chairs->barber, 0, 0);
+    Sem_Init(&chairs->mutex, 0, 1);
+	Sem_Init(&chairs->chair, 0, chairs->max);
+	Sem_Init(&chairs->barber, 0, 0);
 	
     /* Create chairs*/
     chairs->customer = malloc(sizeof(struct customer *) * thrlab_get_num_chairs());
@@ -97,8 +116,14 @@ static void setup(struct simulator *simulator)
 	barber->room = i;
 	barber->simulator = simulator;
 	simulator->barber[i] = barber;
-	pthread_create(&simulator->barberThread[i], 0, barber_work, barber);
-	pthread_detach(simulator->barberThread[i]);
+	if(pthread_create(&simulator->barberThread[i], 0, barber_work, barber) < 0) {
+        printf("Pthread create error");
+        exit(1);
+    } 
+	if(pthread_detach(simulator->barberThread[i]) < 0) {
+        printf("Pthread detach error");
+        exit(1);
+    }
     }
 }
 
@@ -123,27 +148,24 @@ static void customer_arrived(struct customer *customer, void *arg)
     struct simulator *simulator = arg;
     struct chairs *chairs = &simulator->chairs;
 
-    sem_init(&customer->mutex, 0, 0);
+    Sem_Init(&customer->mutex, 0, 0);
 
-    /* If a chair is available we let the customer in, else we turn him
-     * away. */
+    /* If a chair is available we let the customer in, else we turn the
+     * customer away. */
     if (sem_trywait(&chairs->chair) == 0) {
-
-        sem_wait(&chairs->mutex);
+        Sem_Wait(&chairs->mutex);
         thrlab_accept_customer(customer);
         /* Incrementing front by one and modulo max to return back to 0 if
          * the que is at max index. */
         chairs->customer[chairs->f++ % chairs->max] = customer;
-        sem_post(&chairs->mutex);
-        sem_post(&chairs->barber);
-
-        sem_wait(&customer->mutex);
+        Sem_Post(&chairs->mutex);
+        Sem_Post(&chairs->barber);
+        Sem_Wait(&customer->mutex);
         return;
     } else {
         thrlab_reject_customer(customer);
     }
 }
-
 
 int main (int argc, char **argv)
 {

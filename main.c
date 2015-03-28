@@ -21,13 +21,10 @@
 struct chairs
 {
     struct customer **customer; /* Array of customers */
-    int max;
+    int max, f, r; /* Added f and r for que */
 	sem_t chair;
 	sem_t mutex;
 	sem_t barber;
-
-    /* TODO: Add more variables related to threads */
-    /* Hint: Think of the consumer producer thread problem */
 };
 
 struct barber
@@ -48,18 +45,18 @@ static void *barber_work(void *arg)
 {
     struct barber *barber = arg;
     struct chairs *chairs = &barber->simulator->chairs;
-    struct customer *customer = 0; /* TODO: Fetch a customer from a chair */
+    struct customer *customer = 0; 
 
     /* Main barber loop */
     while (true) {
-	/* TODO: Here you must add your semaphores and locking logic */
 		sem_wait(&chairs->barber); 
-
+    
 		sem_wait(&chairs->mutex);
-		customer = chairs->customer[0]; /* TODO: You must choose the customer */
-		thrlab_prepare_customer(customer, barber->room);
+        /* Incrementing rear by one and modulo max to return back to 0 if
+        * the que is at max index */
+		customer = chairs->customer[chairs->r++ % chairs->max]; 
+        thrlab_prepare_customer(customer, barber->room);
 		sem_post(&chairs->mutex);
-		//ATH!	
 		sem_post(&chairs->chair);
 		
         thrlab_sleep(5 * (customer->hair_length - customer->hair_goal));
@@ -78,15 +75,17 @@ static void setup(struct simulator *simulator)
     struct chairs *chairs = &simulator->chairs;
     /* Setup semaphores*/
     chairs->max = thrlab_get_num_chairs();
-    
+    /* Front and Rear of que both begin and index 0. */
+    chairs->f = 0;
+    chairs->r = 0;
+ 
 	sem_init(&chairs->mutex, 0, 1);
-	sem_init(&chairs->chair, 0, 1);
+	sem_init(&chairs->chair, 0, chairs->max);
 	sem_init(&chairs->barber, 0, 0);
-	
 	
     /* Create chairs*/
     chairs->customer = malloc(sizeof(struct customer *) * thrlab_get_num_chairs());
-    
+
     /* Create barber thread data */
     simulator->barberThread = malloc(sizeof(pthread_t) * thrlab_get_num_barbers());
     simulator->barber = malloc(sizeof(struct barber*) * thrlab_get_num_barbers());
@@ -124,18 +123,25 @@ static void customer_arrived(struct customer *customer, void *arg)
     struct simulator *simulator = arg;
     struct chairs *chairs = &simulator->chairs;
 
+    sem_init(&customer->mutex, 0, 0);
 
-    /* TODO: Accept if there is an available chair */
-			sem_wait(&chairs->chair);
-    		sem_wait(&chairs->mutex);
-			thrlab_accept_customer(customer);
-    		chairs->customer[0] = customer;
-			sem_post(&chairs->mutex);
-			sem_post(&chairs->barber);
+    /* If a chair is available we let the customer in, else we turn him
+     * away. */
+    if (sem_trywait(&chairs->chair) == 0) {
 
-			sem_wait(&customer->mutex);
-    /* TODO: Reject if there are no available chairs */
-    	thrlab_reject_customer(customer);
+        sem_wait(&chairs->mutex);
+        thrlab_accept_customer(customer);
+        /* Incrementing front by one and modulo max to return back to 0 if
+         * the que is at max index. */
+        chairs->customer[chairs->f++ % chairs->max] = customer;
+        sem_post(&chairs->mutex);
+        sem_post(&chairs->barber);
+
+        sem_wait(&customer->mutex);
+        return;
+    } else {
+        thrlab_reject_customer(customer);
+    }
 }
 
 

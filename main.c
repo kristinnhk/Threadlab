@@ -27,13 +27,19 @@ void Sem_Init(sem_t *sem, int x, int y) {
 }
 void Sem_Wait(sem_t *sem) {
     if(sem_wait(sem) < 0) {
-        printf("Sem init error");
+        printf("Sem wait error");
         exit(0);
     }
 }
 void Sem_Post(sem_t *sem) {
     if(sem_post(sem) < 0) {
-        printf("Sem init error");
+        printf("Sem post error");
+        exit(0);
+    }
+}
+void Sem_Destroy(sem_t *sem) {
+    if(sem_destroy(sem) < 0) {
+        printf("Sem destroy error");
         exit(0);
     }
 }
@@ -101,7 +107,7 @@ static void setup(struct simulator *simulator)
     Sem_Init(&chairs->mutex, 0, 1);
 	Sem_Init(&chairs->chair, 0, chairs->max);
 	Sem_Init(&chairs->barber, 0, 0);
-	
+
     /* Create chairs*/
     chairs->customer = malloc(sizeof(struct customer *) * thrlab_get_num_chairs());
 
@@ -132,6 +138,12 @@ static void setup(struct simulator *simulator)
  */
 static void cleanup(struct simulator *simulator)
 {
+    /* Destroying all semaphores */
+    struct chairs *chairs = &simulator->chairs;
+    Sem_Destroy(&chairs->mutex);
+    Sem_Destroy(&chairs->chair);
+    Sem_Destroy(&chairs->barber);
+
     /* Free chairs */
     free(simulator->chairs.customer);
 
@@ -161,10 +173,11 @@ static void customer_arrived(struct customer *customer, void *arg)
         Sem_Post(&chairs->mutex);
         Sem_Post(&chairs->barber);
         Sem_Wait(&customer->mutex);
-        return;
     } else {
         thrlab_reject_customer(customer);
     }
+    /* Destroying the customer semaphore */
+    Sem_Destroy(&customer->mutex);
 }
 
 int main (int argc, char **argv)

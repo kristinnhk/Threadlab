@@ -11,10 +11,10 @@
  * provide your team information in below.
  *
  * === User information ===
- * User 1: Kári Mímisson
+ * User 1: kari13
  * SSN: 1711922859
- * User 2: Hörður Ragnarsson
- * SSN:  
+ * User 2: hordur12
+ * SSN: 0504922499
  * === End User Information ===
  ********************************************************/
 
@@ -118,18 +118,18 @@ static void setup(struct simulator *simulator)
     /* Start barber threads */
     struct barber *barber;
     for (unsigned int i = 0; i < thrlab_get_num_barbers(); i++) {
-	barber = calloc(sizeof(struct barber), 1);
-	barber->room = i;
-	barber->simulator = simulator;
-	simulator->barber[i] = barber;
-	if(pthread_create(&simulator->barberThread[i], 0, barber_work, barber) < 0) {
-        printf("Pthread create error");
-        exit(1);
-    } 
-	if(pthread_detach(simulator->barberThread[i]) < 0) {
-        printf("Pthread detach error");
-        exit(1);
-    }
+        barber = calloc(sizeof(struct barber), 1);
+        barber->room = i;
+        barber->simulator = simulator;
+        simulator->barber[i] = barber;
+        if(pthread_create(&simulator->barberThread[i], 0, barber_work, barber) < 0) {
+            printf("Pthread create error");
+            exit(1);
+        } 
+        if(pthread_detach(simulator->barberThread[i]) < 0) {
+            printf("Pthread detach error");
+            exit(1);
+        }
     }
 }
 
